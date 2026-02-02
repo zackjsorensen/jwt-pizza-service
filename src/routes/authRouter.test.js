@@ -25,6 +25,21 @@ function expectValidJwt(potentialJwt) {
   expect(potentialJwt).toMatch(/^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/);
 }
 
+test ('bad password login', async () => {
+  const loginRes = await request(app).put('/api/auth').send({ email: testUser.email, password: 'wrong' });
+  expect(loginRes.status).toBe(401);
+  expect(loginRes.body.message).toBe('password incorrect');
+});
+
+test('logout', async () => {
+  const logoutRes = await request(app)
+    .delete('/api/auth')
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+
+  expect(logoutRes.status).toBe(200);
+  expect(logoutRes.body).toEqual({ message: 'logout successful' });
+});
+
 const login = async () => {
   await request(app).put('/api/auth').send(testUser);
 }
