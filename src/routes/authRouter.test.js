@@ -29,7 +29,7 @@ const login = async () => {
   await request(app).put('/api/auth').send(testUser);
 }
 
-test('order', async () => {
+test('get menu', async () => {
 
   const orderRes = await request(app)
     .get('/api/order/menu')
