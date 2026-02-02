@@ -31,6 +31,12 @@ test ('bad password login', async () => {
   expect(loginRes.body.message).toBe('password incorrect');
 });
 
+test ('logout without login', async () => {
+  const logoutRes = await request(app).delete('/api/auth');
+  expect(logoutRes.status).toBe(401);
+  expect(logoutRes.body.message).toBe('unauthorized');
+});
+
 test('logout', async () => {
   const logoutRes = await request(app)
     .delete('/api/auth')

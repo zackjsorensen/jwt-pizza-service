@@ -47,8 +47,7 @@ async function setAuthUser(req, res, next) {
   next();
 }
 
-// Authenticate token
-// Incomplete test? -- seems like rn it only checks presence of user, not validity of token
+// Authenticate token -- just checks if user is set by setAuthUser
 authRouter.authenticateToken = (req, res, next) => {
   if (!req.user) {
     return res.status(401).send({ message: 'unauthorized' });
