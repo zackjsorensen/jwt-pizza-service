@@ -1,7 +1,6 @@
 const request = require('supertest');
 const app = require('../service');
 const { createAdminUser, registerAdminUser, startSession } = require('./testUtils');
-const { DB, Role } = require('../database/database.js');
 
 beforeAll(async () => {
     await createAdminUser();
