@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../service');
-const { createAdminUser, registerAdminUser } = require('./testUtils');
+const { createAdminUser, registerAdminUser, startSession } = require('./testUtils');
 const { DB, Role } = require('../database/database.js');
 
 beforeAll(async () => {
@@ -63,3 +63,22 @@ test('add menu item success', async () => {
 
 });
 
+test('create order', async () => {
+  let testUser = await startSession();
+  let dinerRes = await request(app)
+    .post('/api/order')
+    .send({"franchiseId": 1, "storeId":1, "items":[{ "menuId": 1, "description": "Veggie", "price": 0.05 }]}).set('Authorization', `Bearer ${testUser.token}`);
+  expect(dinerRes.status).toBe(200);
+  console.log("DinrRes Body");
+  console.log(dinerRes.body);
+  //  response: { order: { franchiseId: 1, storeId: 1, items: [{ menuId: 1, description: 'Veggie', price: 0.05 }], id: 1 }, jwt: '1111111111' },
+  expect(dinerRes.body).toBeDefined();
+  expect(dinerRes.body.jwt).toBeDefined();
+  expect(dinerRes.body).toEqual(expect.objectContaining({ 
+      // franchiseId: expect.any(Number), 
+      // storeId: expect.any(Number),
+      // items: expect.any(Array),
+      jwt: expect.any(String)
+    }));
+
+});
