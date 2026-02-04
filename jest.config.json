@@ -1,0 +1,10 @@
+{
+  "collectCoverage": true,
+  "coverageReporters": ["json-summary", "lcov", "text"],
+  "coverageDirectory": "coverage",
+   "coverageThreshold": {
+        "global": {
+            "lines": 80
+        }
+    }
+}
