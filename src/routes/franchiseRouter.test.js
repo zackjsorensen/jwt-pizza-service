@@ -56,3 +56,96 @@ test('create franchise success', async () => {
     }));
 });
 
+test('create franchise nonadmin', async () => {
+  testUser = await startSession();
+  const franchiseName = randomName();
+  const newFranchise = { name: franchiseName, admins: [{ email: testUser.email }] };
+    const franchiseRes = await request(app).post('/api/franchise')
+    .set('Authorization', `Bearer ${testUser.token}`)
+    .send(newFranchise);
+
+    expect(franchiseRes.status).toBe(403);
+    expect(franchiseRes.body.message).toBe('unable to create a franchise');
+});
+
+test('delete franchise', async () => {
+  // create a franchise to delete
+  const franchiseName = randomName();
+  const newFranchise = { name: franchiseName, admins: [{ email: adminRes.body.user.email }] };
+    const franchiseRes = await request(app).post('/api/franchise')
+    .set('Authorization', `Bearer ${adminRes.body.token}`)
+    .send(newFranchise);
+
+    expect(franchiseRes.status).toBe(200);
+    const franchiseId = franchiseRes.body.id;
+
+    // now delete it
+    const deleteRes = await request(app).delete(`/api/franchise/:${franchiseId}`);
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.message).toBe('franchise deleted');
+});
+
+test('get user franchises', async () => {
+  // need unique admin user
+  const newAdmin = await registerAdminUser();
+  expect(newAdmin.status).toBe(200);
+
+  // create a franchise for them
+  const franchiseName = randomName();
+  const newFranchise = { name: franchiseName, admins: [{ email: newAdmin.body.user.email }] };
+    const franchiseRes = await request(app).post('/api/franchise')
+    .set('Authorization', `Bearer ${newAdmin.body.token}`)
+    .send(newFranchise);
+
+    expect(franchiseRes.status).toBe(200);
+    const userId = newAdmin.body.user.id;
+    // now get it
+    const getRes = await request(app).get(`/api/franchise/${userId}`)
+    .set('Authorization', `Bearer ${newAdmin.body.token}`);
+
+    expect(getRes.status).toBe(200);
+    console.log('getRes body', getRes.body);
+    expect(getRes.body).toEqual(
+  expect.arrayContaining([
+    expect.objectContaining({
+      id: expect.any(Number),
+      name: franchiseName,
+      admins: expect.arrayContaining([
+        expect.objectContaining({
+          id: expect.any(Number),
+          name: newAdmin.body.user.name,
+          email: newAdmin.body.user.email
+        })
+      ])
+    })
+  ])
+);
+
+});
+
+
+test('create franchise store', async () => {
+  // create a franchise to add store to
+  const franchiseName = randomName();
+  const newFranchise = { name: franchiseName, admins: [{ email: adminRes.body.user.email }] };
+    const franchiseRes = await request(app).post('/api/franchise')
+    .set('Authorization', `Bearer ${adminRes.body.token}`)
+    .send(newFranchise);
+
+    expect(franchiseRes.status).toBe(200);
+    const franchiseId = franchiseRes.body.id;
+
+    // now add store
+    const storeName = randomName();
+    const newStore = { name: storeName, location: '123 Main St' };
+    const storeRes = await request(app).post(`/api/franchise/${franchiseId}/store`)
+    .set('Authorization', `Bearer ${adminRes.body.token}`)
+    .send(newStore);
+
+    expect(storeRes.status).toBe(200);
+    expect(storeRes.body).toEqual(expect.objectContaining({
+        id: expect.any(Number),
+        franchiseId: franchiseId,
+        name: storeName,
+    }));
+});
