@@ -1,7 +1,6 @@
 const request = require('supertest');
 const app = require('../service');
-const { createAdminUser, registerAdminUser, startSession, randomName } = require('./testUtils');
-const { Role, DB } = require('../database/database.js');
+const { registerAdminUser, startSession, randomName } = require('./testUtils');
 
 let adminRes;
 
@@ -57,7 +56,7 @@ test('create franchise success', async () => {
 });
 
 test('create franchise nonadmin', async () => {
-  testUser = await startSession();
+  let testUser = await startSession();
   const franchiseName = randomName();
   const newFranchise = { name: franchiseName, admins: [{ email: testUser.email }] };
     const franchiseRes = await request(app).post('/api/franchise')

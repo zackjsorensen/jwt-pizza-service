@@ -48,10 +48,6 @@ test('logout', async () => {
   expect(logoutRes.body).toEqual({ message: 'logout successful' });
 });
 
-const login = async () => {
-  await request(app).put('/api/auth').send(testUser);
-}
-
 test('get menu', async () => {
 
   const orderRes = await request(app)

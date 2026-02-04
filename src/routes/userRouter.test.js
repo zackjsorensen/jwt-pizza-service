@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../service');
-const { createAdminUser, registerAdminUser, startSession, randomName } = require('./testUtils');
+const { registerAdminUser, startSession, randomName } = require('./testUtils');
 
 let testUser;
 let adminRes;

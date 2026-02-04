@@ -34,9 +34,5 @@ async function registerAdminUser() {
   return adminLoginRes;
 }
 
-async function getActiveAdminUser(){
-  const adminToken = await registerAdminUserAndGetToken();
-  
-}
 
 module.exports = { startSession, randomName, createAdminUser, registerAdminUser };
