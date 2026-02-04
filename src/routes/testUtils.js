@@ -8,6 +8,7 @@ const startSession = async () => {
     let testUser = { name: "pizza diner", email: email, password: "a" };
     const registerRes = await request(app).post("/api/auth").send(testUser);
     testUser.token = registerRes.body.token;
+    testUser.id = registerRes.body.user.id;
     return testUser;
 };
 
