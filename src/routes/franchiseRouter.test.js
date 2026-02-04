@@ -148,4 +148,12 @@ test('create franchise store', async () => {
         franchiseId: franchiseId,
         name: storeName,
     }));
+
+    // now delete store
+    const storeId = storeRes.body.id;
+    const deleteRes = await request(app).delete(`/api/franchise/${franchiseId}/store/${storeId}`)
+    .set('Authorization', `Bearer ${adminRes.body.token}`);
+
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.message).toBe('store deleted');
 });
