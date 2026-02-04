@@ -1,12 +1,16 @@
 const request = require('supertest');
 const app = require('../service');
 const { registerAdminUser, startSession, randomName } = require('./testUtils');
+const { DB } = require('../database/database.js');
 
 let adminRes;
 
 
 beforeAll(async () => {
     adminRes = await registerAdminUser();
+    expect(adminRes.status).toBe(200);
+    let newFranchiseName = randomName();
+    await DB.createFranchise({ name: newFranchiseName, admins: [ { email: adminRes.body.user.email } ] });
 });
 
 // apparently we can have a franchise with no admin
