@@ -60,7 +60,6 @@ test('get menu', async () => {
 
   expect(orderRes.status).toBe(200);
   expect(orderRes.body.length).toBeGreaterThan(0);
-  console.log(orderRes.body);
   expect(orderRes.body).toEqual(expect.arrayContaining([
     expect.objectContaining({
       id: expect.any(Number),

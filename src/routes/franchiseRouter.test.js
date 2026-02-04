@@ -1,8 +1,10 @@
 const request = require('supertest');
 const app = require('../service');
-const { createAdminUser, registerAdminUser, startSession } = require('./testUtils');
+const { createAdminUser, registerAdminUser, startSession, randomName } = require('./testUtils');
+const { Role, DB } = require('../database/database.js');
 
 let adminRes;
+
 
 beforeAll(async () => {
     adminRes = await registerAdminUser();
@@ -33,18 +35,23 @@ test('create franchise unauthorized', async () => {
     expect(franchiseRes.body.message).toBe('unauthorized');
 });
 
+
+// was failing bc can't have duplicate franchise names in mysql
 test('create franchise success', async () => {
+  expect(adminRes.status).toBe(200);
   let token = adminRes.body.token;
   expect(token).toBeDefined();
 
-  const newFranchise = { name: 'New Franchise', admins: [{email: adminRes.body.user.email}]};
+  // const newFranchise = { name: 'New Franchise'};
+    const franchiseName = randomName();
+    const newFranchise = {"name": franchiseName, "admins": [{"email": adminRes.body.user.email}]};
     const franchiseRes = await request(app).post('/api/franchise')
     .set('Authorization', `Bearer ${token}`)
     .send(newFranchise);
 
     expect(franchiseRes.status).toBe(200);
     expect(franchiseRes.body).toEqual(expect.objectContaining({
-        name: 'New Franchise',
+        name: franchiseName,
         admins: expect.any(Array)
     }));
 });

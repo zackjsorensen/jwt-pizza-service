@@ -68,8 +68,6 @@ test('create order', async () => {
     .post('/api/order')
     .send({"franchiseId": 1, "storeId":1, "items":[{ "menuId": 1, "description": "Veggie", "price": 0.05 }]}).set('Authorization', `Bearer ${testUser.token}`);
   expect(dinerRes.status).toBe(200);
-  console.log("DinrRes Body");
-  console.log(dinerRes.body);
   //  response: { order: { franchiseId: 1, storeId: 1, items: [{ menuId: 1, description: 'Veggie', price: 0.05 }], id: 1 }, jwt: '1111111111' },
   expect(dinerRes.body).toBeDefined();
   expect(dinerRes.body.jwt).toBeDefined();
