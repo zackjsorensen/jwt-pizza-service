@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-const config = require('../config');
+const config = require('../src/config');
 
 if (process.argv.length < 3) {
   console.error('Usage: node resetDB.js <database_name>');
@@ -17,7 +17,6 @@ async function resetDatabase() {
 
   try {
     await connection.query(`DROP DATABASE IF EXISTS \`${dbName}\`;`);
-    await connection.query(`CREATE DATABASE \`${dbName}\`;`);
     console.log('Database reset successfully');
   } finally {
     await connection.end();
