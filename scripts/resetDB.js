@@ -27,3 +27,7 @@ resetDatabase().catch(err => {
   console.error(err);
   process.exit(1);
 });
+
+// reset 
+// how to initialize it? --> start the service.
+// then need to populate it with test data.

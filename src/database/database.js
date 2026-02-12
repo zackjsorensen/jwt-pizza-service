@@ -368,10 +368,6 @@ class DB {
   }
 
 
-  async deleteDatabase(){
-    // 
-  }
-
 }
 
 const db = new DB();
