@@ -1,6 +1,7 @@
 const request = require("supertest");
 const app = require("../service");
 const { registerAdminUser, startSession, randomName } = require("./testUtils");
+const { DB} = require("../database/database.js");
 
 let testUser;
 let adminRes;
@@ -36,6 +37,31 @@ test('list users', async () => {
     .get('/api/user')
     .set('Authorization', 'Bearer ' + userToken);
   expect(listUsersRes.status).toBe(200);
+});
+
+
+test('list users with pagination and name filter', async () => {
+
+    // mock DB.getAllUsers to return a predictable set of users for testing
+    // const originalGetAllUsers = DB.getAllUsers;
+    DB.getAllUsers = jest.fn().mockResolvedValue([
+        [
+            { id: 1, name: 'Pizza Lover', email: 'pizza@place.com', roles: [{ role: 'user' }] },
+            { id: 2, name: 'Pizza Gobbler', email: 'pizza@palace.com', roles: [{ role: 'admin' }] },
+        ],
+        false // more
+    ]);
+
+  const [, userToken] = await registerUser(request(app));
+  const listUsersRes = await request(app)
+    .get('/api/user?page=1&limit=2&name=pizza')
+    .set('Authorization', 'Bearer ' + userToken);
+  expect(listUsersRes.status).toBe(200);
+  expect(listUsersRes.body.users.length).toBeLessThanOrEqual(2);
+  listUsersRes.body.users.forEach(user => {
+    expect(user.name.toLowerCase()).toContain('pizza');
+
+  });
 });
 
 async function registerUser(service) {
