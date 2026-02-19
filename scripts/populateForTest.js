@@ -1,10 +1,15 @@
 const mysql = require('mysql2/promise');
 const config = require('../src/config');
+const bcrypt = require('bcrypt');
+
 
 if (process.argv.length < 3) {
   console.error('Usage: node populateForTests.js <database_name>');
   process.exit(1);
 }
+
+
+
 
 const dbName = process.argv[2];
 
@@ -17,6 +22,7 @@ async function populateDatabase() {
   });
 
   try {
+
     console.log('Populating test database...');
 
     // -----------------------------
@@ -39,7 +45,10 @@ async function populateDatabase() {
     // USERS FIRST
     // =================================================
 
-    const admin = { name: 'admin', email: 'a@jwt.com', password: 'admin' };
+    const adminPassword = await bcrypt.hash('admin', 10);
+    const ownerPassword = await bcrypt.hash('owner', 10);
+
+    const admin = { name: 'admin', email: 'a@jwt.com', password: adminPassword };
 
     const [adminResult] = await connection.query(
       `INSERT INTO user (name, email, password)
@@ -49,7 +58,7 @@ async function populateDatabase() {
     const adminId = adminResult.insertId;
 
 
-    const franchiseOwner = { name: 'Franchise Owner', email: 'owner@test.com', password: 'password' };
+    const franchiseOwner = { name: 'Franchise Owner', email: 'owner@test.com', password: ownerPassword };
 
     const [ownerResult] = await connection.query(
       `INSERT INTO user (name, email, password)
@@ -121,7 +130,7 @@ async function populateDatabase() {
         'Cheese Pizza',
         '/images/cheese.png',
         9.99,
-        'Classic cheese pizza'
+        'Cheese'
       ]
     );
 
@@ -132,7 +141,7 @@ async function populateDatabase() {
         'Galaxy Burger',
         '/images/burger.png',
         11.49,
-        'Signature burger'
+        'Galaxy'
       ]
     );
 
