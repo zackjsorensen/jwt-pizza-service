@@ -64,12 +64,18 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
+      metrics.authEvent('register', false);
       return res.status(400).json({ message: 'name, email, and password are required' });
     }
-    const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
-    const auth = await setAuth(user);
-    metrics.authEvent('register');
-    res.json({ user: user, token: auth });
+    try {
+      const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
+      const auth = await setAuth(user);
+      metrics.authEvent('register', true);
+      res.json({ user: user, token: auth });
+    } catch (err) {
+      metrics.authEvent('register', false);
+      throw err;
+    }
   })
 );
 
@@ -78,20 +84,25 @@ authRouter.put(
   '/',
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    const user = await DB.getUser(email, password);
-    const auth = await setAuth(user);
-    metrics.authEvent('login');
-    res.json({ user: user, token: auth });
+    try {
+      const user = await DB.getUser(email, password);
+      const auth = await setAuth(user);
+      metrics.authEvent('login', true);
+      res.json({ user: user, token: auth });
+    } catch (err) {
+      metrics.authEvent('login', false);
+      throw err;
+    }
   })
 );
 
-// logout
+// logout (only reached when token is valid; 401 responses are not counted as logout attempts)
 authRouter.delete(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     await clearAuth(req);
-    metrics.authEvent('logout');
+    metrics.authEvent('logout', true);
     res.json({ message: 'logout successful' });
   })
 );

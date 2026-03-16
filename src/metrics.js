@@ -19,12 +19,21 @@ function greetingChanged() {
   greetingChangedCount++;
 }
 
-// ---- Auth metrics ----
-const authCounts = { register: 0, login: 0, logout: 0 };
+// ---- Auth metrics (success vs failure for rate per minute in Grafana) ----
+const authAttempts = {
+  register: { success: 0, failure: 0 },
+  login: { success: 0, failure: 0 },
+  logout: { success: 0, failure: 0 },
+};
 
-function authEvent(event) {
-  if (authCounts[event] !== undefined) {
-    authCounts[event]++;
+/**
+ * Record an auth attempt. Use outcome so Grafana can show rate of success vs failure per minute.
+ * @param {'register'|'login'|'logout'} type - Auth action
+ * @param {boolean} success - Whether the attempt succeeded
+ */
+function authEvent(type, success = true) {
+  if (authAttempts[type]) {
+    authAttempts[type][success ? 'success' : 'failure']++;
   }
 }
 
@@ -104,6 +113,32 @@ function createMetric(metricName, metricValue, metricUnit, metricType, valueType
   return metric;
 }
 
+/** Build one sum metric with multiple data points (e.g. one series per type+outcome). */
+function createSumMetricWithPoints(metricName, dataPoints) {
+  const source = metricsConfig.source || 'jwt-pizza-service';
+  const points = dataPoints.map(({ value, attributes }) => {
+    const attrs = { ...attributes, source };
+    const attrList = Object.keys(attrs).map((key) => ({
+      key,
+      value: { stringValue: String(attrs[key]) },
+    }));
+    return {
+      asInt: value,
+      timeUnixNano: Date.now() * 1000000,
+      attributes: attrList,
+    };
+  });
+  return {
+    name: metricName,
+    unit: '1',
+    sum: {
+      dataPoints: points,
+      aggregationTemporality: 'AGGREGATION_TEMPORALITY_CUMULATIVE',
+      isMonotonic: true,
+    },
+  };
+}
+
 function createGaugeMetric(metricName, metricValue, attributes = {}) {
   return createMetric(metricName, metricValue, '1', 'gauge', 'asDouble', attributes);
 }
@@ -119,10 +154,17 @@ function collectAllMetrics() {
   // User metrics
   metrics.push(createMetric('greetingChange', greetingChangedCount, '1', 'sum', 'asInt', {}));
 
-  // Auth metrics
-  metrics.push(createMetric('authRegister', authCounts.register, '1', 'sum', 'asInt', {}));
-  metrics.push(createMetric('authLogin', authCounts.login, '1', 'sum', 'asInt', {}));
-  metrics.push(createMetric('authLogout', authCounts.logout, '1', 'sum', 'asInt', {}));
+  // Auth metrics: success vs failure per type (use rate(...[1m]) or increase(...[1m]) in Grafana for per-minute)
+  metrics.push(
+    createSumMetricWithPoints('authAttempts', [
+      { value: authAttempts.register.success, attributes: { type: 'register', outcome: 'success' } },
+      { value: authAttempts.register.failure, attributes: { type: 'register', outcome: 'failure' } },
+      { value: authAttempts.login.success, attributes: { type: 'login', outcome: 'success' } },
+      { value: authAttempts.login.failure, attributes: { type: 'login', outcome: 'failure' } },
+      { value: authAttempts.logout.success, attributes: { type: 'logout', outcome: 'success' } },
+      { value: authAttempts.logout.failure, attributes: { type: 'logout', outcome: 'failure' } },
+    ])
+  );
 
   // System metrics
   metrics.push(createGaugeMetric('cpuUsagePercent', getCpuUsagePercentage(), {}));
