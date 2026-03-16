@@ -56,6 +56,7 @@ authRouter.authenticateToken = (req, res, next) => {
   next();
 };
 
+// authRouter.use(requestTracker);
 
 
 // register
@@ -71,6 +72,7 @@ authRouter.post(
       const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
       const auth = await setAuth(user);
       metrics.authEvent('register', true);
+      metrics.recordUserActivity(user.id);
       res.json({ user: user, token: auth });
     } catch (err) {
       metrics.authEvent('register', false);
@@ -89,6 +91,7 @@ authRouter.put(
       const auth = await setAuth(user);
       metrics.authEvent('login', true);
       res.json({ user: user, token: auth });
+      metrics.recordUserActivity(user.id);
     } catch (err) {
       metrics.authEvent('login', false);
       throw err;

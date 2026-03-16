@@ -5,10 +5,34 @@ const metricsConfig = config.db?.metrics || {};
 
 // ---- Request metrics (used by requestTracker middleware) ----
 const requests = {};
+const requestLatencyMs = {};
 
 function requestTracker(req, res, next) {
   const endpoint = `[${req.method}] ${req.path}`;
   requests[endpoint] = (requests[endpoint] || 0) + 1;
+  next();
+}
+
+/**
+ * Record request latency (call when response finishes).
+ * @param {string} endpoint - Same key as requestTracker, e.g. "[GET] /api/order/menu"
+ * @param {number} latencyMs - Time from request start to response finish in ms
+ */
+function recordRequestLatency(endpoint, latencyMs) {
+  if (endpoint == null || typeof latencyMs !== 'number' || !Number.isFinite(latencyMs)) return;
+  requestLatencyMs[endpoint] = (requestLatencyMs[endpoint] || 0) + latencyMs;
+}
+
+/**
+ * Middleware: records start time, then on res finish adds latency to metrics.
+ * Mount after requestTracker so endpoint key is consistent.
+ */
+function requestLatencyTracker(req, res, next) {
+  const start = Date.now();
+  const endpoint = `[${req.method}] ${req.path}`;
+  res.once('finish', () => {
+    recordRequestLatency(endpoint, Date.now() - start);
+  });
   next();
 }
 
@@ -50,6 +74,26 @@ function getMemoryUsagePercentage() {
   const memoryUsage = (usedMemory / totalMemory) * 100;
   return Number(memoryUsage.toFixed(2));
 }
+
+// ---- Active user metrics ----
+const lastActivityByUserId = new Map();
+const ACTIVE_WINDOW_MS = 5 * 60 * 1000; // e.g. 5 minutes
+
+function recordUserActivity(userId) {
+  if (userId != null) {
+    lastActivityByUserId.set(Number(userId), Date.now());
+  }
+}
+
+function getActiveUserCount() {
+  const now = Date.now();
+  let count = 0;
+  for (const ts of lastActivityByUserId.values()) {
+    if (now - ts <= ACTIVE_WINDOW_MS) count++;
+  }
+  return count;
+}
+
 
 // ---- Purchase metrics ----
 const purchaseStats = {
@@ -146,9 +190,11 @@ function createGaugeMetric(metricName, metricValue, attributes = {}) {
 function collectAllMetrics() {
   const metrics = [];
 
-  // Request metrics
+  // Request metrics (count and cumulative latency per endpoint)
   Object.keys(requests).forEach((endpoint) => {
     metrics.push(createMetric('requests', requests[endpoint], '1', 'sum', 'asInt', { endpoint }));
+    const totalMs = requestLatencyMs[endpoint] || 0;
+    metrics.push(createMetric('requestLatencyMsTotal', Math.round(totalMs), 'ms', 'sum', 'asInt', { endpoint }));
   });
 
   // User metrics
@@ -176,6 +222,7 @@ function collectAllMetrics() {
   metrics.push(createMetric('purchaseTotalLatencyMs', Math.round(purchaseStats.totalLatencyMs), 'ms', 'sum', 'asInt', {}));
   metrics.push(createMetric('purchaseTotalPrice', purchaseStats.totalPrice, '1', 'sum', 'asDouble', {}));
   metrics.push(createMetric('purchasePizzaCount', purchaseStats.pizzaCount, '1', 'sum', 'asInt', {}));
+  metrics.push(createMetric('activeUsers', getActiveUserCount(), '1', 'sum', 'asInt', {}));
 
   return metrics;
 }
@@ -235,10 +282,13 @@ sendMetricsPeriodically(PERIOD_MS);
 
 module.exports = {
   requestTracker,
+  requestLatencyTracker,
+  recordRequestLatency,
   greetingChanged,
   authEvent,
   pizzaPurchase,
   sendMetricsPeriodically,
   sendMetricsToGrafana,
   collectAllMetrics,
+  recordUserActivity,
 };

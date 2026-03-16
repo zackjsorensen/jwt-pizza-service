@@ -81,6 +81,16 @@ class DB {
     }
   }
 
+  async getUserByToken(token){
+    const connection = await this.getConnection();
+    try {
+      const [rows] = await connection.execute(`SELECT userId FROM auth WHERE token = ?`, [token]);
+      return rows[0].userId;
+    } finally {
+      connection.end();
+    }
+  }
+
 async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 
@@ -390,6 +400,15 @@ async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
     return rows.length > 0;
   }
 
+  async getUserByToken(token){
+    const connection = await this.getConnection();
+    try {
+      const [rows] = await connection.execute(`SELECT userId FROM auth WHERE token = ?`, [token]);
+      return rows[0].userId;
+    } finally {
+      connection.end();
+    }
+  }
 
 }
 
