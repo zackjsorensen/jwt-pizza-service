@@ -274,6 +274,11 @@ function sendMetricsPeriodically(periodMs = PERIOD_MS) {
       console.error('Error sending metrics', error);
     }
   }, periodMs);
+  // Don't keep the process alive just for metrics.
+  // This prevents Jest (and other short-lived processes) from hanging on active timers.
+  if (typeof timer.unref === 'function') {
+    timer.unref();
+  }
   return timer;
 }
 
