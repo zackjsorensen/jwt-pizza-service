@@ -192,7 +192,7 @@ function collectAllMetrics() {
 
   // Request metrics (count and cumulative latency per endpoint)
   Object.keys(requests).forEach((endpoint) => {
-    metrics.push(createMetric('requests', requests[endpoint], '1', 'sum', 'asInt', { endpoint }));
+    metrics.push(createMetric('requests', requests[endpoint], '1', 'sum', 'asInt', { endpoint, method: endpoint.split(' ')[0] }));
     const totalMs = requestLatencyMs[endpoint] || 0;
     metrics.push(createMetric('requestLatencyMsTotal', Math.round(totalMs), 'ms', 'sum', 'asInt', { endpoint }));
   });

@@ -60,6 +60,7 @@ orderRouter.put(
 
     const addMenuItemReq = req.body;
     await DB.addMenuItem(addMenuItemReq);
+    metrics.recordUserActivity(req.user.id);
     res.send(await DB.getMenu());
   })
 );
@@ -90,6 +91,7 @@ orderRouter.post(
     const j = await r.json();
     const totalPrice = (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0), 0);
     const pizzaCount = (order.items || []).length || 1;
+    metrics.recordUserActivity(req.user.id);
     if (r.ok) {
       metrics.pizzaPurchase(true, latencyMs, totalPrice, pizzaCount);
       res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
