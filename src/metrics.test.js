@@ -23,9 +23,9 @@ describe('metrics.js unit tests', () => {
     return metric?.sum?.dataPoints ?? [];
   }
 
-  function getGaugeDataPoints(metric) {
-    return metric?.gauge?.dataPoints ?? [];
-  }
+  // function getGaugeDataPoints(metric) {
+  //   return metric?.gauge?.dataPoints ?? [];
+  // }
 
   function getAttr(dp, key) {
     const kv = (dp.attributes || []).find((a) => a.key === key);
