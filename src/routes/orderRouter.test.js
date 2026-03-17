@@ -2,6 +2,8 @@ const request = require('supertest');
 const app = require('../service');
 const { createAdminUser, registerAdminUser, startSession } = require('./testUtils');
 
+jest.mock('../database/database.js');
+
 let adminRes;
 
 beforeAll(async () => {

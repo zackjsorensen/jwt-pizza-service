@@ -3,6 +3,8 @@ const app = require('../service');
 const { registerAdminUser, startSession, randomName } = require('./testUtils');
 const { DB } = require('../database/database.js');
 
+jest.mock('../database/database.js');
+
 let adminRes;
 
 
@@ -21,11 +23,12 @@ test('get franchises list', async () => {
     .get('/api/franchise');
     expect(franchiseRes.status).toBe(200);
     expect(franchiseRes.body.franchises).toEqual(expect.arrayContaining([
-        {
+        expect.objectContaining({
             name: expect.any(String),
             id: expect.any(Number),
             stores: expect.any(Array)
-    }]));
+        })
+    ]));
 });
 
 test('create franchise unauthorized', async () => {

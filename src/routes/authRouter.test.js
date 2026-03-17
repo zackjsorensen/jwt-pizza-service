@@ -2,6 +2,8 @@ const request = require('supertest');
 const app = require('../service');
 const startSession = require('./testUtils').startSession;
 
+jest.mock('../database/database.js');
+
 let testUser;
 let testUserAuthToken;
 

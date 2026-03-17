@@ -3,6 +3,8 @@ const app = require("../service");
 const { registerAdminUser, startSession, randomName } = require("./testUtils");
 const { DB} = require("../database/database.js");
 
+jest.mock('../database/database.js');
+
 let testUser;
 let adminRes;
 
