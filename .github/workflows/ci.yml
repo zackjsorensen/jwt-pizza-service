@@ -80,14 +80,8 @@ jobs:
             color=$(echo "$coverage < 80" | bc | awk '{if ($1) print "red"; else print "green"}')
             curl -s -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzaservicecoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}"
 
-      - name: Create dist
+      - name: Create dist config
         run: |
-          mkdir -p dist
-          cp Dockerfile dist/
-          cp -r src/* dist/
-          cp *.json dist/
-          
-          # Now overwrite the local config in dist with the production one
           cat <<EOF > dist/config.js
           module.exports = {
             jwtSecret: '${{ secrets.JWT_SECRET }}',
@@ -113,6 +107,15 @@ jobs:
             },            
           };
           EOF
+
+      - name: Verify Injection
+        run: |
+          if grep -q "{{ secrets." dist/config.js; then
+            echo "ERROR: Secrets were not expanded in config.js!"
+            exit 1
+          else
+            echo "Success: Secrets appear to be injected."
+          fi
 
       - name: Update distribution artifact
         uses: actions/upload-artifact@v4
