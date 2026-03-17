@@ -32,34 +32,34 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           printf '{"version": "%s" }' "$version" > src/version.json
         
-      - name: Write Config to Dist
+      - name: Write Config to Source
         run: |
-                mkdir -p dist
-                cat <<EOF > dist/config.js
-                module.exports = {
-                  jwtSecret: '${{ secrets.JWT_SECRET }}',
-                  db: {
-                    connection: {
-                      host: '${{ secrets.DB_HOSTNAME }}',
-                      user: '${{ secrets.DB_USERNAME }}',
-                      password: '${{ secrets.DB_PASSWORD }}',
-                      database: 'pizza',
-                      connectTimeout: 60000,
-                    },
-                    listPerPage: 10,
-                  },
-                  factory: {
-                    url: 'https://pizza-factory.cs329.click',
-                    apiKey: '${{ secrets.FACTORY_API_KEY }}',
-                  },
-                  metrics: {
-                    source: 'jwt-pizza-service',
-                    endpointUrl: '${{ secrets.METRICS_ENDPOINT_URL }}',
-                    apiKey: '${{ secrets.METRICS_API_KEY }}',
-                    accountId: '${{ secrets.METRICS_ACCOUNT_ID_KEY }}',
-                  },            
-                };
-                EOF
+          # Write to src so tests can find it
+          cat <<EOF > src/config.js
+          module.exports = {
+            jwtSecret: '${{ secrets.JWT_SECRET }}',
+            db: {
+              connection: {
+                host: '127.0.0.1', # Use localhost for CI services
+                user: 'root',
+                password: 'tempdbpassword',
+                database: 'pizza',
+                connectTimeout: 60000,
+              },
+              listPerPage: 10,
+            },
+            factory: {
+              url: 'https://pizza-factory.cs329.click',
+              apiKey: '${{ secrets.FACTORY_API_KEY }}',
+            },
+            metrics: {
+              source: 'jwt-pizza-service',
+              endpointUrl: '${{ secrets.METRICS_ENDPOINT_URL }}',
+              apiKey: '${{ secrets.METRICS_API_KEY }}',
+              accountId: '${{ secrets.METRICS_ACCOUNT_ID_KEY }}',
+            },            
+          };
+          EOF
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -83,11 +83,37 @@ jobs:
 
       - name: Create dist
         run: |
-                mkdir dist
-                cp Dockerfile dist
-                cp -r src/* dist
-                cp *.json dist
-                # Use '|' as the delimiter to safely handle '/' in URLs and passwords
+          mkdir -p dist
+          cp Dockerfile dist/
+          cp -r src/* dist/
+          cp *.json dist/
+          
+          # Now overwrite the local config in dist with the production one
+          cat <<EOF > dist/config.js
+          module.exports = {
+            jwtSecret: '${{ secrets.JWT_SECRET }}',
+            db: {
+              connection: {
+                host: '${{ secrets.DB_HOSTNAME }}',
+                user: '${{ secrets.DB_USERNAME }}',
+                password: '${{ secrets.DB_PASSWORD }}',
+                database: 'pizza',
+                connectTimeout: 60000,
+              },
+              listPerPage: 10,
+            },
+            factory: {
+              url: 'https://pizza-factory.cs329.click',
+              apiKey: '${{ secrets.FACTORY_API_KEY }}',
+            },
+            metrics: {
+              source: 'jwt-pizza-service',
+              endpointUrl: '${{ secrets.METRICS_ENDPOINT_URL }}',
+              apiKey: '${{ secrets.METRICS_API_KEY }}',
+              accountId: '${{ secrets.METRICS_ACCOUNT_ID_KEY }}',
+            },            
+          };
+          EOF
 
       - name: Update distribution artifact
         uses: actions/upload-artifact@v4
