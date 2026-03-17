@@ -5,6 +5,7 @@ on:
     branches:
       - main
   workflow_dispatch:
+
 jobs:
   build:
     name: Build
@@ -25,17 +26,20 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: set version
+      - name: Set version
         id: set_version
         run: |
           version=$(date +'%Y%m%d.%H%M%S')
           echo "version=$version" >> "$GITHUB_OUTPUT"
           printf '{"version": "%s" }' "$version" > src/version.json
-        
-      - name: Write config file
+
+      - name: Write Config to Source (for Tests)
         run: |
-          echo "module.exports = {
-            jwtSecret: '${{ secrets.JWT_SECRET }}',
+          # Use quoted 'EOF' so secrets aren't expanded yet (prevents shell injection)
+          # We hardcode the local MySQL service values here for the test suite
+          cat <<'EOF' > src/config.js
+          module.exports = {
+            jwtSecret: 'test-secret',
             db: {
               connection: {
                 host: '127.0.0.1',
@@ -48,15 +52,16 @@ jobs:
             },
             factory: {
               url: 'https://pizza-factory.cs329.click',
-              apiKey: '${{ secrets.FACTORY_API_KEY }}',
+              apiKey: 'test-key',
             },
             metrics: {
               source: 'jwt-pizza-service',
-              endpointUrl: '${{ secrets.METRICS_ENDPOINT_URL }}',
-              apiKey: '${{ secrets.METRICS_API_KEY }}',
-              accountId: '${{ secrets.METRICS_ACCOUNT_ID_KEY }}',
-            },            
-          };" > src/config.js
+              endpointUrl: 'http://localhost:3000',
+              apiKey: 'test-key',
+              accountId: 'test-id',
+            },
+          };
+          EOF
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -74,19 +79,53 @@ jobs:
 
       - name: Update coverage
         run: |
-            coverage=$(jq '.total.lines.pct' coverage/coverage-summary.json)
-            color=$(echo "$coverage < 80" | bc | awk '{if ($1) print "red"; else print "green"}')
-            curl -s -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzaservicecoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}"
+          coverage=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+          color=$(echo "$coverage < 80" | bc | awk '{if ($1) print "red"; else print "green"}')
+          curl -s -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzaservicecoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}"
 
-      - name: Create dist
+      - name: Prepare dist folder
         run: |
-          mkdir dist
-          cp Dockerfile dist
-          cp -r src/* dist
-          cp *.json dist
-          sed -i "s/root/${{ secrets.DB_USERNAME }}/g" dist/config.js
-          sed -i "s/tempdbpassword/${{ secrets.DB_PASSWORD }}/g" dist/config.js
-          sed -i "s/127.0.0.1/${{ secrets.DB_HOSTNAME }}/g" dist/config.js
+          mkdir -p dist
+          cp Dockerfile dist/
+          cp -r src/* dist/
+          cp package*.json dist/
+          
+          # Overwrite config.js in dist with PRODUCTION values
+          # Using unquoted EOF to ensure ${{ secrets }} are expanded by GitHub
+          cat <<EOF > dist/config.js
+          module.exports = {
+            jwtSecret: '${{ secrets.JWT_SECRET }}',
+            db: {
+              connection: {
+                host: '${{ secrets.DB_HOSTNAME }}',
+                user: '${{ secrets.DB_USERNAME }}',
+                password: '${{ secrets.DB_PASSWORD }}',
+                database: 'pizza',
+                connectTimeout: 60000,
+              },
+              listPerPage: 10,
+            },
+            factory: {
+              url: 'https://pizza-factory.cs329.click',
+              apiKey: '${{ secrets.FACTORY_API_KEY }}',
+            },
+            metrics: {
+              source: 'jwt-pizza-service',
+              endpointUrl: '${{ secrets.METRICS_ENDPOINT_URL }}',
+              apiKey: '${{ secrets.METRICS_API_KEY }}',
+              accountId: '${{ secrets.METRICS_ACCOUNT_ID_KEY }}',
+            },
+          };
+          EOF
+
+      - name: Verify Injection
+        run: |
+          if grep -q "{{ secrets." dist/config.js; then
+            echo "ERROR: Secrets were not expanded in config.js!"
+            exit 1
+          else
+            echo "Success: Secrets injected."
+          fi
 
       - name: Update distribution artifact
         uses: actions/upload-artifact@v4
@@ -101,12 +140,12 @@ jobs:
     needs: build
     env:
       version: ${{needs.build.outputs.version}}
-
     steps:
       - name: Download distribution artifact
         uses: actions/download-artifact@v4
         with:
           name: package
+          path: .  # Unpack directly into the current directory
 
       - name: Create OIDC token to AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -131,8 +170,9 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: 'jwt-pizza-service'
         run: |
-          docker build --platform=linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY --push .
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >>  $GITHUB_OUTPUT
+          # The current directory (.) now contains the Dockerfile and source from the artifact
+          docker build --platform=linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY:latest --push .
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
 
       - name: Deploy new container
         run: |
