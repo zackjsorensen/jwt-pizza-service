@@ -250,8 +250,7 @@ function sendMetricsToGrafana(metrics) {
     method: 'POST',
     body: JSON.stringify(body),
     headers: {
-      // This Base64 encodes the credentials
-Authorization: `Basic ${Buffer.from(`${accountId}:${apiKey}`).toString('base64')}`,
+      Authorization: `Bearer ${accountId}:${apiKey}`,
       'Content-Type': 'application/json',
     },
   })
