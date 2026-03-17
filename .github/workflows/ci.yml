@@ -121,6 +121,20 @@ jobs:
             echo "Success: Secrets appear to be injected."
           fi
 
+      # ... after Verify Injection ...
+
+      - name: Prepare distribution
+        run: |
+          cp Dockerfile dist/
+          cp -r src/* dist/
+          cp package*.json dist/
+
+      - name: Update distribution artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: dist/
+
       - name: Update distribution artifact
         uses: actions/upload-artifact@v4
         with:
