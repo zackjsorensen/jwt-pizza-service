@@ -1,7 +1,8 @@
 const os = require('os');
 const config = require('./config');
 
-const metricsConfig = config.db?.metrics || {};
+// Metrics configuration now lives at config.metrics (not config.db.metrics).
+const metricsConfig = config.metrics || {};
 
 // ---- Request metrics (used by requestTracker middleware) ----
 const requests = {};
