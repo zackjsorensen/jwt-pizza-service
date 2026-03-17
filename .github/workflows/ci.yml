@@ -82,6 +82,10 @@ jobs:
 
       - name: Create dist config
         run: |
+          # Ensure the directory exists first
+          mkdir -p dist
+          
+          # Use unquoted EOF so secrets are expanded
           cat <<EOF > dist/config.js
           module.exports = {
             jwtSecret: '${{ secrets.JWT_SECRET }}',
