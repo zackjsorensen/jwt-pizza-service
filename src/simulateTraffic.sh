@@ -20,24 +20,30 @@ SLEEP_SECONDS="${2:-2}"
 echo "Simulating traffic against ${BASE_URL} every ${SLEEP_SECONDS}s"
 echo "Press Ctrl+C to stop."
 
-# In-memory "users" we will cycle through
-USER_NAMES=("Alice" "Bob" "Carol" "Dave" "Eve")
-USER_EMAILS=("alice@example.com" "bob@example.com" "carol@example.com" "dave@example.com" "eve@example.com")
-USER_PASSWORD="pizzapw"
-
-# We cache tokens per email after login/registration
+# In-memory tokens per email after login/registration
 declare -A TOKENS
+
+USER_PASSWORD="pizzapw"
 
 random_index() {
   local max="$1"
   echo $((RANDOM % max))
 }
 
+random_name() {
+  # cheap random name; uniqueness is not critical
+  echo "user$RANDOM$RANDOM"
+}
+
+random_email() {
+  echo "$(random_name)@test.com"
+}
+
 register_user() {
-  local idx
-  idx=$(random_index ${#USER_NAMES[@]})
-  local name="${USER_NAMES[$idx]}"
-  local email="${USER_EMAILS[$idx]}"
+  local name
+  name=$(random_name)
+  local email
+  email=$(random_email)
 
   echo ""
   echo "==> Registering user: $name <$email>"
@@ -56,9 +62,23 @@ register_user() {
 }
 
 login_user() {
-  local idx
-  idx=$(random_index ${#USER_EMAILS[@]})
-  local email="${USER_EMAILS[$idx]}"
+  # pick a random email we may or may not have registered yet
+  local email
+  # Reuse an existing user about half the time if we have any tokens
+  if (( RANDOM % 2 == 0 )) && ((${#TOKENS[@]} > 0)); then
+    # Reuse a known user ~50% of the time
+    local email_list=()
+    for e in "${!TOKENS[@]}"; do
+      email_list+=("$e")
+    done
+    local count=${#email_list[@]}
+    local idx
+    idx=$(random_index "$count")
+    email="${email_list[$idx]}"
+  else
+    # Otherwise potentially log in a never-registered user (should fail)
+    email=$(random_email)
+  fi
 
   echo ""
   echo "==> Logging in user: $email"
@@ -73,6 +93,19 @@ login_user() {
     TOKENS["$email"]="$token"
     echo "Logged in and stored token for $email"
   fi
+}
+
+bad_login_user() {
+  # Always attempt with wrong password to generate failed auth metrics
+  local email
+  email=$(random_email)
+
+  echo ""
+  echo "==> BAD login attempt for: $email"
+  curl -s -o /tmp/login_bad.json -w " HTTP_%{http_code}\n" \
+    -X PUT "${BASE_URL}/api/auth" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"${email}\",\"password\":\"wrongpw\"}"
 }
 
 logout_user() {
@@ -129,9 +162,16 @@ create_order() {
   local email="${email_list[$idx]}"
   local token="${TOKENS[$email]}"
 
-  # Simple random order: 1–3 items with small random prices
+  # Simple random order: 1–25 items with small random prices
   local items_json='[]'
-  local item_count=$((1 + RANDOM % 3))
+  # About 20% of orders will be 20+ pizzas to trigger factory failures.
+  local item_count
+  if (( RANDOM % 5 == 0 )); then
+    item_count=$((20 + RANDOM % 10))  # 20–29
+    echo "==> Creating LARGE order (likely to fail) with ${item_count} pizzas"
+  else
+    item_count=$((1 + RANDOM % 3))    # 1–3
+  fi
   for ((i=0; i<item_count; i++)); do
     local price="0.0$((10 + RANDOM % 90))"
     local item
@@ -153,13 +193,16 @@ create_order() {
 }
 
 random_action() {
-  case $((RANDOM % 6)) in
-    0) register_user ;;
-    1) login_user ;;
-    2) create_order ;;
-    3) logout_user ;;
-    4) get_menu ;;
-    5) create_order ;;  # bias slightly toward orders
+  # One HTTP request per loop => with default 2s sleep ~30 requests/min (<60).
+  case $((RANDOM % 8)) in
+    0) register_user ;;     # successful (or duplicate) registrations
+    1) login_user ;;        # mix of success/failure
+    2) bad_login_user ;;    # explicit failed auth
+    3) create_order ;;      # includes some large failing orders
+    4) logout_user ;;       # successful logouts
+    5) get_menu ;;          # anonymous GET
+    6) create_order ;;      # bias slightly toward orders
+    7) login_user ;;        # more logins
   esac
 }
 
