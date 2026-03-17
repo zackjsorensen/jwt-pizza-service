@@ -34,13 +34,12 @@ jobs:
         
       - name: Write Config to Source
         run: |
-          # Write to src so tests can find it
-          cat <<EOF > src/config.js
+          cat <<'EOF' > src/config.js
           module.exports = {
             jwtSecret: '${{ secrets.JWT_SECRET }}',
             db: {
               connection: {
-                host: '127.0.0.1', # Use localhost for CI services
+                host: '127.0.0.1',
                 user: 'root',
                 password: 'tempdbpassword',
                 database: 'pizza',
