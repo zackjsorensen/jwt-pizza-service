@@ -400,7 +400,7 @@ async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
     return rows.length > 0;
   }
 
-  async getUserByToken(token){
+  async getUserIdByToken(token){
     const connection = await this.getConnection();
     try {
       const [rows] = await connection.execute(`SELECT userId FROM auth WHERE token = ?`, [token]);
