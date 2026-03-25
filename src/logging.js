@@ -21,6 +21,38 @@ class Logger {
       };
       next();
     };
+
+    dbLogger = (sql, params, results) => {
+      const logData = {
+        query: sql,
+        params: JSON.stringify(params),
+        results: JSON.stringify(results)
+      };
+      this.log('info', 'db', logData);
+    };
+
+    factoryLogger = (req, res, next) => {
+        const send = res.send;
+        res.send = (body) => {
+          const logData = {
+            request: req.body,
+            response: body
+          };
+      
+          this.log('info', 'factory', logData);
+      
+          res.send = send;
+          return send.call(res, body); // call the original send function to send the response to the client
+        };
+        next();
+      };
+
+    errorLogger = (error) => {
+      const logData = {
+        error: error,
+      };
+      this.log('error', 'error', logData);
+    }
   
     log(level, type, logData) {
       const labels = { component: loggingConfig.source, level: level, type: type };
@@ -42,7 +74,13 @@ class Logger {
   
     sanitize(logData) {
       logData = JSON.stringify(logData);
-      return logData.replace(/\\"password\\":\s*\\"[^"]*\\"/g, '\\"password\\": \\"*****\\"');
+      logData = logData.replace(/\\"password\\":\s*\\"[^"]*\\"/g, '\\"password\\": \\"*****\\"');
+      logData = logData.replace(/\\"token\\":\s*\\"[^"]*\\"/g, '\\"token\\": \\"*****\\"');
+      logData = logData.replace(/\\"apiKey\\":\s*\\"[^"]*\\"/g, '\\"apiKey\\": \\"*****\\"');
+      logData = logData.replace(/\\"apiSecret\\":\s*\\"[^"]*\\"/g, '\\"apiSecret\\": \\"*****\\"');
+      logData = logData.replace(/\\"apiToken\\":\s*\\"[^"]*\\"/g, '\\"apiToken\\": \\"*****\\"');
+      logData = logData.replace(/\\"account_id\\":\s*\\"[^"]*\\"/g, '\\"account_id\\": \\"*****\\"');
+      return logData;
     }
   
     sendLogToGrafana(event) {

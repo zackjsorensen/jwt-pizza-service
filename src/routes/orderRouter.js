@@ -4,6 +4,7 @@ const metrics = require('../metrics.js');
 const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
+const logging = require('../logging.js');
 
 const orderRouter = express.Router();
 
@@ -77,6 +78,7 @@ orderRouter.get(
 // createOrder
 orderRouter.post(
   '/',
+  logging.factoryLogger,
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     const orderReq = req.body;

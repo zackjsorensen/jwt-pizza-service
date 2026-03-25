@@ -4,6 +4,7 @@ const config = require('../config.js');
 const { StatusCodeError } = require('../endpointHelper.js');
 const { Role } = require('../model/model.js');
 const dbModel = require('./dbModel.js');
+const logging = require('../logging.js');
 
 // TODO: make modular - easy to switch to a dummy DB for testing
 // TODO: consider adding a deleteDB function for testing purposes
@@ -91,7 +92,7 @@ class DB {
     }
   }
 
-async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
+  async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 
     const offset = page * limit;
@@ -334,6 +335,7 @@ async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
 
   async query(connection, sql, params) {
     const [results] = await connection.execute(sql, params);
+    logging.dbLogger(sql, params, results);
     return results;
   }
 
