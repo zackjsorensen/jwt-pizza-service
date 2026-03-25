@@ -79,19 +79,19 @@ class Logger {
       logData = logData.replace(/\\"apiKey\\":\s*\\"[^"]*\\"/g, '\\"apiKey\\": \\"*****\\"');
       logData = logData.replace(/\\"apiSecret\\":\s*\\"[^"]*\\"/g, '\\"apiSecret\\": \\"*****\\"');
       logData = logData.replace(/\\"apiToken\\":\s*\\"[^"]*\\"/g, '\\"apiToken\\": \\"*****\\"');
-      logData = logData.replace(/\\"account_id\\":\s*\\"[^"]*\\"/g, '\\"account_id\\": \\"*****\\"');
+      logData = logData.replace(/\\"accountId\\":\s*\\"[^"]*\\"/g, '\\"accountId\\": \\"*****\\"');
       return logData;
     }
   
     sendLogToGrafana(event) {
-      if (!loggingConfig.endpoint_url) return;
+      if (!loggingConfig.endpointUrl) return;
       const body = JSON.stringify(event);
-      fetch(loggingConfig.endpoint_url, {
+      fetch(loggingConfig.endpointUrl, {
         method: 'post',
         body: body,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${loggingConfig.account_id}:${loggingConfig.api_key}`,
+          Authorization: `Bearer ${loggingConfig.accountId}:${loggingConfig.apiKey}`,
         },
       }).then((res) => {
         if (!res.ok) console.log('Failed to send log to Grafana');
