@@ -7,6 +7,7 @@ const userRouter = require('./routes/userRouter.js');
 const version = require('./version.json');
 const config = require('./config.js');
 const logging = require('./logging.js');
+const { StatusCodeError } = require('./endpointHelper.js');
 
 const app = express();
 app.use(express.json());
