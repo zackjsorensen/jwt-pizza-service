@@ -12,7 +12,7 @@
 # Example:
 #   ./simulateTraffic.sh http://localhost:3000 2
 
-set -euo pipefail
+set -eo pipefail
 
 BASE_URL="${1:-http://localhost:3000}"
 SLEEP_SECONDS="${2:-2}"
