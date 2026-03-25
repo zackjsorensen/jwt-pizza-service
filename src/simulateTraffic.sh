@@ -143,6 +143,13 @@ get_menu() {
     "${BASE_URL}/api/order/menu"
 }
 
+simulate_db_connection_error() {
+  echo ""
+  echo "==> Triggering simulated DB connection failure endpoint"
+  curl -s -o /tmp/db_error.json -w " HTTP_%{http_code}\n" \
+    "${BASE_URL}/api/debug/simulate-db-connection-error"
+}
+
 create_order() {
   # Need a logged-in user
   local email_list=()
@@ -194,7 +201,7 @@ create_order() {
 
 random_action() {
   # One HTTP request per loop => with default 2s sleep ~30 requests/min (<60).
-  case $((RANDOM % 8)) in
+  case $((RANDOM % 12)) in
     0) register_user ;;     # successful (or duplicate) registrations
     1) login_user ;;        # mix of success/failure
     2) bad_login_user ;;    # explicit failed auth
@@ -203,6 +210,10 @@ random_action() {
     5) get_menu ;;          # anonymous GET
     6) create_order ;;      # bias slightly toward orders
     7) login_user ;;        # more logins
+    8) simulate_db_connection_error ;; # intentional server error
+    9) create_order ;;
+    10) get_menu ;;
+    11) login_user ;;
   esac
 }
 

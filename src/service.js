@@ -30,6 +30,10 @@ apiRouter.use('/user', userRouter);
 apiRouter.use('/order', orderRouter);
 apiRouter.use('/franchise', franchiseRouter);
 
+apiRouter.get('/debug/simulate-db-connection-error', (req, res, next) => {
+  next(new Error('Simulated database connection failure: unable to connect to DB'));
+});
+
 apiRouter.use('/docs', (req, res) => {
   res.json({
     version: version.version,
