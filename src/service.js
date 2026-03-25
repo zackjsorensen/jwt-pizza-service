@@ -52,8 +52,12 @@ app.use('*', (req, res) => {
 
 // Default error handler for all exceptions and errors.
 app.use((err, req, res, next) => {
+  if (!(err instanceof StatusCodeError)) {
+    logging.errorLogger(err);
+  }
   res.status(err.statusCode ?? 500).json({ message: err.message, stack: err.stack });
-  console.log(err)
+  console.log(err);
+  console.log(err.stack);
   next();
 });
 

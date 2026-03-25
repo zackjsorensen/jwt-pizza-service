@@ -49,7 +49,7 @@ class Logger {
 
     errorLogger = (error) => {
       const logData = {
-        error: error,
+        error: error
       };
       this.log('error', 'error', logData);
     }
