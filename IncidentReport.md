@@ -2,7 +2,8 @@
 
 ## Summary ##
 At 1:14 PM on Tuesday, April 7, 2026, an implanted chaotic element of the jwt-pizza-service code was activated. For about 2 minutes, users were unable to recieve pizzas, as orders returned with a 500 request and no pizza.
-A bug in the code caused incoming pizza order requests to be returned with 500 rather than being correctly handled. The event was detected by Zack Sorensen of the JWT Pizza DevOps team, who was already online investigating a false alarm. 
+A bug in the code caused incoming pizza order requests to be returned with 500 rather than being correctly handled. The event was detected by Zack Sorensen of the JWT Pizza DevOps team, who was already online investigating a false alarm. He found the disable chaos link and used it to restore correct functionality. 
+Metrics have been updated to better track such issues, and the problematic code will be removed shortly.
 
 
 
@@ -36,6 +37,6 @@ This bug is not related to any known past incidents
 
 ## Action Items
 - The JWT Pizza DevOps team will examine the source code to remove the chaotic component and replace it with standard functionality as needed, branching and tracking all changes in GitHub.
-- Zack will reinforce the alerts in Grafana so that the JWT Pizza DevOps team receives an alert any time profit remains zero for 5 minutes while pizza orders continue to come in.
-- Zack will raise the threshold for "Unknown Endpoint" alerts so that false alarms will not be triggered beyond reason in the future. 
+- Zack adjusted the alerts in Grafana so that the JWT Pizza DevOps team receives an alert any time the rate of failed pizza purchases rises above 8 per minute - COMPLETED
+- Zack raised the threshold for "Unknown Endpoint" alerts so that false alarms will not be triggered beyond reason in the future - COMPLETED
 
