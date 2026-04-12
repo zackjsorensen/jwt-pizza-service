@@ -54,6 +54,10 @@ const DB = {
     return { id: user.id, name: user.name, email: user.email, roles: clone(user.roles), password: undefined };
   },
 
+  async getMenuItem(menuId) {
+    return menu.find((m) => m.id === menuId);
+  },
+
   async updateUser(userId, name, email, password) {
     const user = usersById.get(userId);
     if (!user) throw new StatusCodeError('unknown user', 404);

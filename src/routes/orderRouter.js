@@ -75,6 +75,13 @@ orderRouter.get(
   })
 );
 
+
+const getPrice = async (menuId) => {
+  const item = await DB.getMenuItem(menuId);
+  return item.price;
+};
+
+
 // createOrder
 orderRouter.post(
   '/',
@@ -91,7 +98,8 @@ orderRouter.post(
     });
     const latencyMs = Date.now() - start;
     const j = await r.json();
-    const totalPrice = (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+
+    const totalPrice = (order.items || []).reduce(async(sum, item) => sum + (Number(await getPrice(item.menuId)) || 0), 0);
     const pizzaCount = (order.items || []).length || 1;
     metrics.recordUserActivity(req.user.id);
     if (r.ok) {
@@ -103,5 +111,30 @@ orderRouter.post(
     }
   })
 );
+
+
+
+
+//chaos
+// let enableChaos = false;
+// orderRouter.put(
+//   '/chaos/:state',
+//   authRouter.authenticateToken,
+//   asyncHandler(async (req, res) => {
+//     if (req.user.isRole(Role.Admin)) {
+//       enableChaos = req.params.state === 'true';
+//     }
+
+//     res.json({ chaos: enableChaos });
+//   })
+// );
+
+// orderRouter.post('/', (req, res, next) => {
+//   if (enableChaos && Math.random() < 0.5) {
+//     throw new StatusCodeError('Chaos monkey', 500);
+//   }
+//   next();
+// });
+
 
 module.exports = orderRouter;

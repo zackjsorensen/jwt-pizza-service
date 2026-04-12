@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
 # Simple traffic simulator for JWT Pizza service.
-# Generates a mix of:
-# - user registrations
-# - logins
-# - order creations
-# - logouts
+# Generates mostly normal activity:
+# - menu reads, registrations, logins, small orders, logouts
+# - large orders (20+ pizzas) at most about once every 8 minutes
+# - occasional wrong-password logins, capped at 2 per clock minute
 #
 # Usage:
 #   ./simulateTraffic.sh [base_url] [sleep_seconds]
@@ -17,6 +16,9 @@ set -eo pipefail
 BASE_URL="${1:-http://localhost:3000}"
 SLEEP_SECONDS="${2:-2}"
 
+# Seconds between "large" (20+ pizza) orders — ~8 minutes
+LARGE_ORDER_MIN_INTERVAL=480
+
 echo "Simulating traffic against ${BASE_URL} every ${SLEEP_SECONDS}s"
 echo "Press Ctrl+C to stop."
 
@@ -25,18 +27,33 @@ declare -A TOKENS
 
 USER_PASSWORD="pizzapw"
 
+# Large orders: don't fire one immediately on startup
+LAST_LARGE_ORDER_EPOCH=$(date +%s)
+
+# Wrong-login cap: at most 2 failed logins per local clock minute
+BAD_LOGIN_MINUTE=-1
+BAD_LOGIN_COUNT=0
+
 random_index() {
   local max="$1"
   echo $((RANDOM % max))
 }
 
 random_name() {
-  # cheap random name; uniqueness is not critical
   echo "user$RANDOM$RANDOM"
 }
 
 random_email() {
   echo "$(random_name)@test.com"
+}
+
+bad_login_quota_remaining() {
+  local now_minute=$(( $(date +%s) / 60 ))
+  if (( now_minute != BAD_LOGIN_MINUTE )); then
+    BAD_LOGIN_MINUTE=$now_minute
+    BAD_LOGIN_COUNT=0
+  fi
+  (( BAD_LOGIN_COUNT < 2 ))
 }
 
 register_user() {
@@ -52,7 +69,6 @@ register_user() {
     -H "Content-Type: application/json" \
     -d "{\"name\":\"${name}\",\"email\":\"${email}\",\"password\":\"${USER_PASSWORD}\"}"
 
-  # Try to grab token if registration succeeded
   if jq -e '.token' /tmp/reg.json >/dev/null 2>&1; then
     local token
     token=$(jq -r '.token' /tmp/reg.json)
@@ -62,23 +78,22 @@ register_user() {
 }
 
 login_user() {
-  # pick a random email we may or may not have registered yet
-  local email
-  # Reuse an existing user about half the time if we have any tokens
-  if (( RANDOM % 2 == 0 )) && ((${#TOKENS[@]} > 0)); then
-    # Reuse a known user ~50% of the time
-    local email_list=()
-    for e in "${!TOKENS[@]}"; do
-      email_list+=("$e")
-    done
-    local count=${#email_list[@]}
-    local idx
-    idx=$(random_index "$count")
-    email="${email_list[$idx]}"
-  else
-    # Otherwise potentially log in a never-registered user (should fail)
-    email=$(random_email)
+  # Only log in known users so traffic looks like real usage (no random guaranteed failures here).
+  local email_list=()
+  for e in "${!TOKENS[@]}"; do
+    email_list+=("$e")
+  done
+  local count=${#email_list[@]}
+  if (( count == 0 )); then
+    echo ""
+    echo "==> No users yet; registering instead of login."
+    register_user
+    return
   fi
+
+  local idx
+  idx=$(random_index "$count")
+  local email="${email_list[$idx]}"
 
   echo ""
   echo "==> Logging in user: $email"
@@ -96,20 +111,27 @@ login_user() {
 }
 
 bad_login_user() {
-  # Always attempt with wrong password to generate failed auth metrics
+  echo ""
+  if ! bad_login_quota_remaining; then
+    echo "==> Bad login skipped (already at 2 failed logins this minute); fetching menu instead"
+    curl -s -o /tmp/menu.json -w " HTTP_%{http_code}\n" \
+      "${BASE_URL}/api/order/menu"
+    return
+  fi
+
   local email
   email=$(random_email)
 
-  echo ""
-  echo "==> BAD login attempt for: $email"
+  echo "==> Wrong-password login attempt for: $email"
   curl -s -o /tmp/login_bad.json -w " HTTP_%{http_code}\n" \
     -X PUT "${BASE_URL}/api/auth" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"${email}\",\"password\":\"wrongpw\"}"
+
+  ((++BAD_LOGIN_COUNT)) || true
 }
 
 logout_user() {
-  # pick a random user that has a token
   local email_list=()
   for e in "${!TOKENS[@]}"; do
     email_list+=("$e")
@@ -132,7 +154,6 @@ logout_user() {
     -X DELETE "${BASE_URL}/api/auth" \
     -H "Authorization: Bearer ${token}"
 
-  # On any attempt, forget the token so we don't treat them as active
   unset TOKENS["$email"]
 }
 
@@ -143,15 +164,7 @@ get_menu() {
     "${BASE_URL}/api/order/menu"
 }
 
-simulate_db_connection_error() {
-  echo ""
-  echo "==> Triggering simulated DB connection failure endpoint"
-  curl -s -o /tmp/db_error.json -w " HTTP_%{http_code}\n" \
-    "${BASE_URL}/api/debug/simulate-db-connection-error"
-}
-
 create_order() {
-  # Need a logged-in user
   local email_list=()
   for e in "${!TOKENS[@]}"; do
     email_list+=("$e")
@@ -159,7 +172,7 @@ create_order() {
   local count=${#email_list[@]}
   if (( count == 0 )); then
     echo ""
-    echo "==> No logged-in users to create order; trying a login instead."
+    echo "==> No logged-in users to create order; logging in."
     login_user
     return
   fi
@@ -169,16 +182,20 @@ create_order() {
   local email="${email_list[$idx]}"
   local token="${TOKENS[$email]}"
 
-  # Simple random order: 1–25 items with small random prices
-  local items_json='[]'
-  # About 20% of orders will be 20+ pizzas to trigger factory failures.
+  local now
+  now=$(date +%s)
   local item_count
-  if (( RANDOM % 5 == 0 )); then
-    item_count=$((20 + RANDOM % 10))  # 20–29
-    echo "==> Creating LARGE order (likely to fail) with ${item_count} pizzas"
+  if (( now - LAST_LARGE_ORDER_EPOCH >= LARGE_ORDER_MIN_INTERVAL )); then
+    item_count=$((20 + RANDOM % 10)) # 20–29 pizzas, ~every 8 minutes
+    LAST_LARGE_ORDER_EPOCH=$now
+    echo ""
+    echo "==> Creating scheduled LARGE order (${item_count} pizzas)"
   else
-    item_count=$((1 + RANDOM % 3))    # 1–3
+    # Typical small orders: 1–5 pizzas
+    item_count=$((1 + RANDOM % 5))
   fi
+
+  local items_json='[]'
   for ((i=0; i<item_count; i++)); do
     local price="0.0$((10 + RANDOM % 90))"
     local item
@@ -191,7 +208,6 @@ create_order() {
 
   echo ""
   echo "==> Creating order for $email with $item_count item(s)"
-  echo "Body: $order_body"
   curl -s -o /tmp/order.json -w " HTTP_%{http_code}\n" \
     -X POST "${BASE_URL}/api/order" \
     -H "Content-Type: application/json" \
@@ -199,25 +215,31 @@ create_order() {
     -d "$order_body"
 }
 
+# Extra anonymous reads to mimic real "browsing" traffic
+maybe_extra_menu() {
+  if (( RANDOM % 3 == 0 )); then
+    echo ""
+    echo "==> Extra menu fetch (browse)"
+    curl -s -o /tmp/menu2.json -w " HTTP_%{http_code}\n" \
+      "${BASE_URL}/api/order/menu"
+  fi
+}
+
 random_action() {
-  # One HTTP request per loop => with default 2s sleep ~30 requests/min (<60).
-  case $((RANDOM % 12)) in
-    0) register_user ;;     # successful (or duplicate) registrations
-    1) login_user ;;        # mix of success/failure
-    2) bad_login_user ;;    # explicit failed auth
-    3) create_order ;;      # includes some large failing orders
-    4) logout_user ;;       # successful logouts
-    5) get_menu ;;          # anonymous GET
-    6) create_order ;;      # bias slightly toward orders
-    7) login_user ;;        # more logins
-    8) simulate_db_connection_error ;; # intentional server error
-    9) create_order ;;
-    10) get_menu ;;
-    11) login_user ;;
+  # Heavier on menu, orders, and successful auth; rare wrong logins (rate-limited).
+  case $((RANDOM % 100)) in
+    [0-9]|[1-2][0-9]|[3][0-4]) get_menu ;;           # 0–34: 35% menu
+    [3][5-9]|[4][0-9]|[5][0-9]) create_order ;;      # 35–59: 25% order
+    [6][0-9]|[7][0-4]) login_user ;;                 # 60–74: 15% login
+    [7][5-9]|[8][0-2]) register_user ;;              # 75–82: 8% register
+    [8][3-9]|[9][0-2]) logout_user ;;                # 83–92: 10% logout
+    93|94) bad_login_user ;;                             # 93–94: 2% wrong logins (max 2/min)
+    *) get_menu ;;                                     # 95–99: 5% more menu
   esac
 }
 
 while true; do
   random_action
+  maybe_extra_menu
   sleep "${SLEEP_SECONDS}"
 done
