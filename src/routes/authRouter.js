@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config.js');
 const metrics = require('../metrics.js');
 const { asyncHandler } = require('../endpointHelper.js');
+const { loginRateLimit } = require('../middleware/loginRateLimit.js');
 const { DB, Role } = require('../database/database.js');
 
 const authRouter = express.Router();
@@ -18,7 +19,7 @@ authRouter.docs = [
   {
     method: 'PUT',
     path: '/api/auth',
-    description: 'Login existing user',
+    description: 'Login existing user (max 5 attempts per IP per minute)',
     example: `curl -X PUT localhost:3000/api/auth -d '{"email":"a@jwt.com", "password":"admin"}' -H 'Content-Type: application/json'`,
     response: { user: { id: 1, name: '常用名字', email: 'a@jwt.com', roles: [{ role: 'admin' }] }, token: 'tttttt' },
   },
@@ -84,6 +85,7 @@ authRouter.post(
 // login
 authRouter.put(
   '/',
+  loginRateLimit,
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     try {
