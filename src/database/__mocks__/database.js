@@ -62,7 +62,7 @@ const DB = {
     const user = usersById.get(userId);
     if (!user) throw new StatusCodeError('unknown user', 404);
     if (name) user.name = name;
-    if (email) {
+    if (email !== undefined) {
       // update email index
       usersByEmail.delete(user.email);
       user.email = email;

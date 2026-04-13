@@ -110,11 +110,19 @@ class DB {
   async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 
+    page = Number(page) || 0;
+    limit = Number(limit) || 10;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
     const offset = page * limit;
     nameFilter = nameFilter.replace(/\*/g, '%');
 
     try {
-      let users = await this.query(connection, `SELECT name, email, id FROM user WHERE name LIKE ? LIMIT ${limit + 1} OFFSET ${offset}`, [nameFilter]);
+      let users = await this.query(connection, `SELECT name, email, id FROM user WHERE name LIKE ? LIMIT ? OFFSET ?`, [
+        nameFilter,
+        limit + 1,
+        offset,
+      ]);
 
       const more = users.length > limit;
       if (more) {
@@ -133,20 +141,29 @@ class DB {
   async updateUser(userId, name, email, password) {
     const connection = await this.getConnection();
     try {
-      const params = [];
+      userId = Number(userId);
+      if (!Number.isInteger(userId) || userId < 1) {
+        throw new StatusCodeError('invalid user id', 400);
+      }
+
+      const setParts = [];
+      const values = [];
       if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
-        params.push(`password='${hashedPassword}'`);
+        setParts.push(`password=?`);
+        values.push(hashedPassword);
       }
-      if (email) {
-        params.push(`email='${email}'`);
+      if (email !== undefined) {
+        setParts.push(`email=?`);
+        values.push(email);
       }
       if (name) {
-        params.push(`name='${name}'`);
+        setParts.push(`name=?`);
+        values.push(name);
       }
-      if (params.length > 0) {
-        const query = `UPDATE user SET ${params.join(', ')} WHERE id=${userId}`;
-        await this.query(connection, query);
+      if (setParts.length > 0) {
+        const query = `UPDATE user SET ${setParts.join(', ')} WHERE id=?`;
+        await this.query(connection, query, [...values, userId]);
       }
       return this.getUser(email, password);
     } finally {
@@ -189,7 +206,11 @@ class DB {
     const connection = await this.getConnection();
     try {
       const offset = this.getOffset(page, config.db.listPerPage);
-      const orders = await this.query(connection, `SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? LIMIT ${offset},${config.db.listPerPage}`, [user.id]);
+      const orders = await this.query(connection, `SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? LIMIT ?,?`, [
+        user.id,
+        Number(offset) || 0,
+        Number(config.db.listPerPage) || 10,
+      ]);
       for (const order of orders) {
         let items = await this.query(connection, `SELECT id, menuId, description, price FROM orderItem WHERE orderId=?`, [order.id]);
         order.items = items;
@@ -320,7 +341,8 @@ class DB {
       }
 
       franchiseIds = franchiseIds.map((v) => v.objectId);
-      const franchises = await this.query(connection, `SELECT id, name FROM franchise WHERE id in (${franchiseIds.join(',')})`);
+      const placeholders = franchiseIds.map(() => '?').join(',');
+      const franchises = await this.query(connection, `SELECT id, name FROM franchise WHERE id in (${placeholders})`, franchiseIds);
       for (const franchise of franchises) {
         await this.getFranchise(franchise);
       }
@@ -381,6 +403,11 @@ class DB {
   }
 
   async getID(connection, key, value, table) {
+    const allowedTables = new Set(['franchise', 'store', 'user', 'menu']);
+    const allowedKeys = new Set(['name', 'email', 'id']);
+    if (!allowedTables.has(table) || !allowedKeys.has(key)) {
+      throw new StatusCodeError('invalid lookup', 500);
+    }
     const [rows] = await connection.execute(`SELECT id FROM ${table} WHERE ${key}=?`, [value]);
     if (rows.length > 0) {
       return rows[0].id;
