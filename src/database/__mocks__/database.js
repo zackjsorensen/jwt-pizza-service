@@ -108,9 +108,26 @@ const DB = {
 
   async addDinerOrder(user, order) {
     const id = nextOrderId++;
-    const saved = { ...order, id };
+    const sanitizedItems = [];
+    for (const item of order.items || []) {
+      const menuRow = menu.find((m) => m.id === Number(item.menuId));
+      if (!menuRow) {
+        throw new StatusCodeError('unknown menu item', 404);
+      }
+      sanitizedItems.push({
+        menuId: menuRow.id,
+        description: menuRow.description,
+        price: menuRow.price,
+      });
+    }
+    const saved = {
+      franchiseId: order.franchiseId,
+      storeId: order.storeId,
+      id,
+      items: sanitizedItems,
+    };
     const list = ordersByUserId.get(user.id) || [];
-    list.push(saved);
+    list.push(clone(saved));
     ordersByUserId.set(user.id, list);
     return clone(saved);
   },
