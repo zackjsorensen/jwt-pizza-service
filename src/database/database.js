@@ -80,6 +80,10 @@ class DB {
         throw new StatusCodeError('unknown user', 404);
       } else if (password && !(await bcrypt.compare(password, user.password))) {
         throw new StatusCodeError('password incorrect', 401);
+      } else if (user.password === null) {
+        throw new StatusCodeError('password is required', 401);
+      } else if (user.password === undefined) {
+        throw new StatusCodeError('password is required', 401);
       }
 
       const roleResult = await this.query(connection, `SELECT * FROM userRole WHERE userId=?`, [user.id]);
