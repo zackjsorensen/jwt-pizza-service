@@ -152,7 +152,14 @@ const DB = {
   },
 
   async deleteFranchise(franchiseId) {
-    franchises.delete(franchiseId);
+    const id = Number(franchiseId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new StatusCodeError('invalid franchise id', 400);
+    }
+    if (!franchises.has(id)) {
+      throw new StatusCodeError('franchise not found', 404);
+    }
+    franchises.delete(id);
   },
 
   async getFranchise({ id }) {

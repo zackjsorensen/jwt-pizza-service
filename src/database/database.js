@@ -34,7 +34,7 @@ class DB {
     }
   }
 
-  
+
   async addMenuItem(item) {
     const connection = await this.getConnection();
     try {
@@ -250,16 +250,29 @@ class DB {
   }
 
   async deleteFranchise(franchiseId) {
+    const id = Number(franchiseId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new StatusCodeError('invalid franchise id', 400);
+    }
     const connection = await this.getConnection();
     try {
       await connection.beginTransaction();
       try {
-        await this.query(connection, `DELETE FROM store WHERE franchiseId=?`, [franchiseId]);
-        await this.query(connection, `DELETE FROM userRole WHERE objectId=?`, [franchiseId]);
-        await this.query(connection, `DELETE FROM franchise WHERE id=?`, [franchiseId]);
+        await this.query(connection, `DELETE FROM store WHERE franchiseId=?`, [id]);
+        await this.query(connection, `DELETE FROM userRole WHERE objectId=?`, [id]);
+        const delResult = await this.query(connection, `DELETE FROM franchise WHERE id=?`, [id]);
+        const affectedRows =
+          delResult && typeof delResult.affectedRows === 'number' ? delResult.affectedRows : 0;
+        if (affectedRows === 0) {
+          await connection.rollback();
+          throw new StatusCodeError('franchise not found', 404);
+        }
         await connection.commit();
-      } catch {
+      } catch (err) {
         await connection.rollback();
+        if (err instanceof StatusCodeError) {
+          throw err;
+        }
         throw new StatusCodeError('unable to delete franchise', 500);
       }
     } finally {

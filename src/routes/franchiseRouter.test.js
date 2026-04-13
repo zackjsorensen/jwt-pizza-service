@@ -86,7 +86,7 @@ test('delete franchise', async () => {
     const franchiseId = franchiseRes.body.id;
 
     // now delete it
-    const deleteRes = await request(app).delete(`/api/franchise/:${franchiseId}`);
+    const deleteRes = await request(app).delete(`/api/franchise/${franchiseId}`);
     expect(deleteRes.status).toBe(200);
     expect(deleteRes.body.message).toBe('franchise deleted');
 });
