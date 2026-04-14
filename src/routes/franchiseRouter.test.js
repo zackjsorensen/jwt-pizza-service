@@ -74,22 +74,56 @@ test('create franchise nonadmin', async () => {
     expect(franchiseRes.body.message).toBe('unable to create a franchise');
 });
 
-test('delete franchise', async () => {
+test('delete franchise nonadmin', async () => {
+
+  expect(adminRes.status).toBe(200);
+  let token = adminRes.body.token;
+  expect(token).toBeDefined();
   // create a franchise to delete
+  let testUser = await startSession();  
   const franchiseName = randomName();
+  const newFranchise = { name: franchiseName, admins: [{ email: testUser.email }] };
+    const franchiseRes = await request(app).post('/api/franchise')
+    .set('Authorization', `Bearer ${token}`)
+    .send(newFranchise);
+
+    expect(franchiseRes.status).toBe(200);
+    const franchiseId = franchiseRes.body.id;
+
+    
+
+
+    // now delete it, should fail
+    const deleteRes = await request(app).delete(`/api/franchise/${franchiseId}`)
+    .set('Authorization', `Bearer ${testUser.token}`);
+    expect(deleteRes.status).toBe(403);
+    expect(deleteRes.body.message).toBe('unable to delete a franchise');
+});
+
+
+test('delete franchise admin', async () => {
+  // create a franchise to delete
+
+  expect(adminRes.status).toBe(200);
+  let token = adminRes.body.token;
+  expect(token).toBeDefined();
+    const franchiseName = randomName();
   const newFranchise = { name: franchiseName, admins: [{ email: adminRes.body.user.email }] };
     const franchiseRes = await request(app).post('/api/franchise')
-    .set('Authorization', `Bearer ${adminRes.body.token}`)
+    .set('Authorization', `Bearer ${token}`)
     .send(newFranchise);
 
     expect(franchiseRes.status).toBe(200);
     const franchiseId = franchiseRes.body.id;
 
     // now delete it
-    const deleteRes = await request(app).delete(`/api/franchise/:${franchiseId}`);
+    const deleteRes = await request(app).delete(`/api/franchise/${franchiseId}`)
+    .set('Authorization', `Bearer ${token}`);
+
     expect(deleteRes.status).toBe(200);
     expect(deleteRes.body.message).toBe('franchise deleted');
 });
+
 
 test('get user franchises', async () => {
   // need unique admin user

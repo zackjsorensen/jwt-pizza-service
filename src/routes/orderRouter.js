@@ -75,7 +75,8 @@ orderRouter.get(
   })
 );
 
-// createOrder
+
+// createOrder — line-item prices come from DB in addDinerOrder (client cannot set price)
 orderRouter.post(
   '/',
   logging.factoryLogger,
@@ -91,6 +92,7 @@ orderRouter.post(
     });
     const latencyMs = Date.now() - start;
     const j = await r.json();
+
     const totalPrice = (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0), 0);
     const pizzaCount = (order.items || []).length || 1;
     metrics.recordUserActivity(req.user.id);
@@ -103,5 +105,30 @@ orderRouter.post(
     }
   })
 );
+
+
+
+
+//chaos
+// let enableChaos = false;
+// orderRouter.put(
+//   '/chaos/:state',
+//   authRouter.authenticateToken,
+//   asyncHandler(async (req, res) => {
+//     if (req.user.isRole(Role.Admin)) {
+//       enableChaos = req.params.state === 'true';
+//     }
+
+//     res.json({ chaos: enableChaos });
+//   })
+// );
+
+// orderRouter.post('/', (req, res, next) => {
+//   if (enableChaos && Math.random() < 0.5) {
+//     throw new StatusCodeError('Chaos monkey', 500);
+//   }
+//   next();
+// });
+
 
 module.exports = orderRouter;

@@ -10,6 +10,7 @@ const logging = require('./logging.js');
 const { StatusCodeError } = require('./endpointHelper.js');
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(metrics.requestTracker);
 app.use(metrics.requestLatencyTracker);
@@ -29,6 +30,10 @@ apiRouter.use('/auth', authRouter);
 apiRouter.use('/user', userRouter);
 apiRouter.use('/order', orderRouter);
 apiRouter.use('/franchise', franchiseRouter);
+
+apiRouter.get('/debug/simulate-db-connection-error', (req, res, next) => {
+  next(new Error('Simulated database connection failure: unable to connect to DB'));
+});
 
 apiRouter.use('/docs', (req, res) => {
   res.json({

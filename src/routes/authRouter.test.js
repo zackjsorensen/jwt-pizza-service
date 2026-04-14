@@ -35,6 +35,16 @@ test ('bad password login', async () => {
   expect(loginRes.body.message).toBe('password incorrect');
 });
 
+test('login rate limited after 5 attempts per minute', async () => {
+  for (let i = 0; i < 5; i++) {
+    const res = await request(app).put('/api/auth').send({ email: testUser.email, password: 'wrong' });
+    expect(res.status).toBe(401);
+  }
+  const limited = await request(app).put('/api/auth').send({ email: testUser.email, password: testUser.password });
+  expect(limited.status).toBe(429);
+  expect(limited.body.message).toBe('Too many attempts, try again later');
+});
+
 test ('logout without login', async () => {
   const logoutRes = await request(app).delete('/api/auth');
   expect(logoutRes.status).toBe(401);

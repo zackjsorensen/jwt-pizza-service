@@ -1,5 +1,11 @@
 // Shared test setup for the whole repo.
 
+const { resetLoginRateLimits } = require('./src/middleware/loginRateLimit.js');
+
+beforeEach(() => {
+  resetLoginRateLimits();
+});
+
 // Mock outbound HTTP calls (pizza factory + metrics export).
 global.fetch = jest.fn(async (url) => {
   // Pizza factory order endpoint: return jwt/reportUrl shape expected by orderRouter

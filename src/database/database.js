@@ -24,6 +24,17 @@ class DB {
     }
   }
 
+  async getMenuItem(menuId) {
+    const connection = await this.getConnection();
+    try {
+      const rows = await this.query(connection, `SELECT * FROM menu WHERE id=?`, [menuId]);
+      return rows[0];
+    } finally {
+      connection.end();
+    }
+  }
+
+
   async addMenuItem(item) {
     const connection = await this.getConnection();
     try {
@@ -69,6 +80,10 @@ class DB {
         throw new StatusCodeError('unknown user', 404);
       } else if (password && !(await bcrypt.compare(password, user.password))) {
         throw new StatusCodeError('password incorrect', 401);
+      } else if (user.password === null) {
+        throw new StatusCodeError('password is required', 401);
+      } else if (user.password === undefined) {
+        throw new StatusCodeError('password is required', 401);
       }
 
       const roleResult = await this.query(connection, `SELECT * FROM userRole WHERE userId=?`, [user.id]);
@@ -95,11 +110,19 @@ class DB {
   async getAllUsers(authUser, page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 
+    page = Number(page) || 0;
+    limit = Number(limit) || 10;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
     const offset = page * limit;
     nameFilter = nameFilter.replace(/\*/g, '%');
 
     try {
-      let users = await this.query(connection, `SELECT name, email, id FROM user WHERE name LIKE ? LIMIT ${limit + 1} OFFSET ${offset}`, [nameFilter]);
+      let users = await this.query(connection, `SELECT name, email, id FROM user WHERE name LIKE ? LIMIT ? OFFSET ?`, [
+        nameFilter,
+        limit + 1,
+        offset,
+      ]);
 
       const more = users.length > limit;
       if (more) {
@@ -118,20 +141,29 @@ class DB {
   async updateUser(userId, name, email, password) {
     const connection = await this.getConnection();
     try {
-      const params = [];
+      userId = Number(userId);
+      if (!Number.isInteger(userId) || userId < 1) {
+        throw new StatusCodeError('invalid user id', 400);
+      }
+
+      const setParts = [];
+      const values = [];
       if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
-        params.push(`password='${hashedPassword}'`);
+        setParts.push(`password=?`);
+        values.push(hashedPassword);
       }
-      if (email) {
-        params.push(`email='${email}'`);
+      if (email !== undefined) {
+        setParts.push(`email=?`);
+        values.push(email);
       }
       if (name) {
-        params.push(`name='${name}'`);
+        setParts.push(`name=?`);
+        values.push(name);
       }
-      if (params.length > 0) {
-        const query = `UPDATE user SET ${params.join(', ')} WHERE id=${userId}`;
-        await this.query(connection, query);
+      if (setParts.length > 0) {
+        const query = `UPDATE user SET ${setParts.join(', ')} WHERE id=?`;
+        await this.query(connection, query, [...values, userId]);
       }
       return this.getUser(email, password);
     } finally {
@@ -174,7 +206,11 @@ class DB {
     const connection = await this.getConnection();
     try {
       const offset = this.getOffset(page, config.db.listPerPage);
-      const orders = await this.query(connection, `SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? LIMIT ${offset},${config.db.listPerPage}`, [user.id]);
+      const orders = await this.query(connection, `SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? LIMIT ?,?`, [
+        user.id,
+        Number(offset) || 0,
+        Number(config.db.listPerPage) || 10,
+      ]);
       for (const order of orders) {
         let items = await this.query(connection, `SELECT id, menuId, description, price FROM orderItem WHERE orderId=?`, [order.id]);
         order.items = items;
@@ -190,11 +226,24 @@ class DB {
     try {
       const orderResult = await this.query(connection, `INSERT INTO dinerOrder (dinerId, franchiseId, storeId, date) VALUES (?, ?, ?, now())`, [user.id, order.franchiseId, order.storeId]);
       const orderId = orderResult.insertId;
-      for (const item of order.items) {
-        const menuId = await this.getID(connection, 'id', item.menuId, 'menu');
-        await this.query(connection, `INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)`, [orderId, menuId, item.description, item.price]);
+      const sanitizedItems = [];
+      for (const item of order.items || []) {
+        const menuRow = await this.getMenuItem(item.menuId);
+        if (!menuRow) {
+          throw new StatusCodeError('unknown menu item', 404);
+        }
+        const menuId = menuRow.id;
+        const price = Number(menuRow.price);
+        const description = menuRow.description;
+        await this.query(connection, `INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)`, [orderId, menuId, description, price]);
+        sanitizedItems.push({ menuId, description, price });
       }
-      return { ...order, id: orderId };
+      return {
+        franchiseId: order.franchiseId,
+        storeId: order.storeId,
+        id: orderId,
+        items: sanitizedItems,
+      };
     } finally {
       connection.end();
     }
@@ -226,16 +275,29 @@ class DB {
   }
 
   async deleteFranchise(franchiseId) {
+    const id = Number(franchiseId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new StatusCodeError('invalid franchise id', 400);
+    }
     const connection = await this.getConnection();
     try {
       await connection.beginTransaction();
       try {
-        await this.query(connection, `DELETE FROM store WHERE franchiseId=?`, [franchiseId]);
-        await this.query(connection, `DELETE FROM userRole WHERE objectId=?`, [franchiseId]);
-        await this.query(connection, `DELETE FROM franchise WHERE id=?`, [franchiseId]);
+        await this.query(connection, `DELETE FROM store WHERE franchiseId=?`, [id]);
+        await this.query(connection, `DELETE FROM userRole WHERE objectId=?`, [id]);
+        const delResult = await this.query(connection, `DELETE FROM franchise WHERE id=?`, [id]);
+        const affectedRows =
+          delResult && typeof delResult.affectedRows === 'number' ? delResult.affectedRows : 0;
+        if (affectedRows === 0) {
+          await connection.rollback();
+          throw new StatusCodeError('franchise not found', 404);
+        }
         await connection.commit();
-      } catch {
+      } catch (err) {
         await connection.rollback();
+        if (err instanceof StatusCodeError) {
+          throw err;
+        }
         throw new StatusCodeError('unable to delete franchise', 500);
       }
     } finally {
@@ -279,7 +341,8 @@ class DB {
       }
 
       franchiseIds = franchiseIds.map((v) => v.objectId);
-      const franchises = await this.query(connection, `SELECT id, name FROM franchise WHERE id in (${franchiseIds.join(',')})`);
+      const placeholders = franchiseIds.map(() => '?').join(',');
+      const franchises = await this.query(connection, `SELECT id, name FROM franchise WHERE id in (${placeholders})`, franchiseIds);
       for (const franchise of franchises) {
         await this.getFranchise(franchise);
       }
@@ -340,6 +403,11 @@ class DB {
   }
 
   async getID(connection, key, value, table) {
+    const allowedTables = new Set(['franchise', 'store', 'user', 'menu']);
+    const allowedKeys = new Set(['name', 'email', 'id']);
+    if (!allowedTables.has(table) || !allowedKeys.has(key)) {
+      throw new StatusCodeError('invalid lookup', 500);
+    }
     const [rows] = await connection.execute(`SELECT id FROM ${table} WHERE ${key}=?`, [value]);
     if (rows.length > 0) {
       return rows[0].id;

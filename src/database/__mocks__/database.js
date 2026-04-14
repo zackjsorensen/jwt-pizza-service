@@ -54,11 +54,15 @@ const DB = {
     return { id: user.id, name: user.name, email: user.email, roles: clone(user.roles), password: undefined };
   },
 
+  async getMenuItem(menuId) {
+    return menu.find((m) => m.id === menuId);
+  },
+
   async updateUser(userId, name, email, password) {
     const user = usersById.get(userId);
     if (!user) throw new StatusCodeError('unknown user', 404);
     if (name) user.name = name;
-    if (email) {
+    if (email !== undefined) {
       // update email index
       usersByEmail.delete(user.email);
       user.email = email;
@@ -104,9 +108,26 @@ const DB = {
 
   async addDinerOrder(user, order) {
     const id = nextOrderId++;
-    const saved = { ...order, id };
+    const sanitizedItems = [];
+    for (const item of order.items || []) {
+      const menuRow = menu.find((m) => m.id === Number(item.menuId));
+      if (!menuRow) {
+        throw new StatusCodeError('unknown menu item', 404);
+      }
+      sanitizedItems.push({
+        menuId: menuRow.id,
+        description: menuRow.description,
+        price: menuRow.price,
+      });
+    }
+    const saved = {
+      franchiseId: order.franchiseId,
+      storeId: order.storeId,
+      id,
+      items: sanitizedItems,
+    };
     const list = ordersByUserId.get(user.id) || [];
-    list.push(saved);
+    list.push(clone(saved));
     ordersByUserId.set(user.id, list);
     return clone(saved);
   },
@@ -131,7 +152,14 @@ const DB = {
   },
 
   async deleteFranchise(franchiseId) {
-    franchises.delete(franchiseId);
+    const id = Number(franchiseId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new StatusCodeError('invalid franchise id', 400);
+    }
+    if (!franchises.has(id)) {
+      throw new StatusCodeError('franchise not found', 404);
+    }
+    franchises.delete(id);
   },
 
   async getFranchise({ id }) {
