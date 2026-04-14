@@ -13,7 +13,7 @@ Zack Sorensen and Alex Evans
 | Classification | Brute Force |
 | Severity | 0 |
 | Description | Log into admin, guess passwords, try likely passwords |
-| Images |   |
+| Images |  |
 | Corrections | I don't have an easy admin password, but it would be good to add rate limit to auth attempts |
 
  
@@ -25,7 +25,7 @@ Zack Sorensen and Alex Evans
 | Classification | Authentication Failure |
 | Severity | 2 |
 | Description | Log into a user with no password |
-| Images |    ![][../PenTest/z2.png]   |
+| Images |     ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z1.png) ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z2.png) |
 | Corrections | Add check to make sure password is not empty/null |
 
 | Item | Result |
@@ -35,7 +35,7 @@ Zack Sorensen and Alex Evans
 | Classification | Insecure Design |
 | Severity | 3 |
 | Description | Send modified price to cause loss of revenue |
-| Images |  |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z3.png) |
 | Corrections | Use prices from the database and not from request body |
 
 | Item | Result |
@@ -45,7 +45,7 @@ Zack Sorensen and Alex Evans
 | Classification | Broken Access Control |
 | Severity | 2 |
 | Description | Delete franchises without authorization via endpoint |
-| Images |  Before: After:  |
+| Images |   ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z4.png) |
 | Corrections | Add authorization to the delete franchise endpoint |
 
  
@@ -57,7 +57,7 @@ Zack Sorensen and Alex Evans
 | Classification | Injection |
 | Severity | 2 |
 | Description | Corrupt user data via malicious username update (set all emails to a junk email) |
-| Images | ![][image7] Data corrupted in database  ^^ |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z5.png) Data corrupted in database  ^^ |
 | Correctis | Sanitize SQL inputs |
 
 ### Alex
@@ -69,7 +69,7 @@ Zack Sorensen and Alex Evans
 | Classification | Injection |
 | Severity | 0 |
 | Description | SQL injection through updating a user, to try and delete the database. Failed. |
-| Images | ![][image8] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a1.png) |
 | Corrections | Still, it would be good to go and sanitize my user inputs. |
 
 | Item | Result |
@@ -79,7 +79,7 @@ Zack Sorensen and Alex Evans
 | Classification | Broken Access Control |
 | Severity | 0 |
 | Description | Attempted to change the name of a different user or role of self when you send it to the backend via the `PUT /api/user/:userId` endpoint. Failed. |
-| Images | ![][image9]![][image10] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a2.png) |
 | Corrections | None needed. Endpoint already verifies authorization |
 
 | Item | Result |
@@ -89,7 +89,7 @@ Zack Sorensen and Alex Evans
 | Classification | Broken Access Control |
 | Severity | 1 |
 | Description | Any other user can successfully delete another user via the `DELETE /api/user/:id` endpoint. |
-| Images | ![][image11] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a3.png) |
 | Corrections | Add authorization check for deletion of users. |
 
 | Item | Result |
@@ -99,7 +99,7 @@ Zack Sorensen and Alex Evans
 | Classification | Identification and Authentication Failures |
 | Severity | 2 |
 | Description | Brute force of passwords to log into a user account. Succeeded with a blank password |
-| Images | ![][image12] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a4.png) |
 | Corrections | Prevent login with no password in the payload. |
 
 | Item | Result |
@@ -109,7 +109,7 @@ Zack Sorensen and Alex Evans
 | Classification | Broken Access Control |
 | Severity | 2 |
 | Description | Access the list of all users without admin authentication. Successful\! |
-| Images | ![][image13] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a5.png) |
 | Corrections | Require admin authorization for viewing list of users. |
 
 ## Peer Attacks
@@ -174,7 +174,7 @@ Zack Sorensen and Alex Evans
 | Classification | SQL Injection Attack |
 | Severity | 2 |
 | Description | Replace all user emails with a junk email |
-| Images | ![][image14] ![][image15]   |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z_attack_1.png)  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/z_attack_2.png) |
 | Corrections | Sanitize SQL inputs, restore database with a backup |
 
 ### Alex attacking Zack
@@ -186,7 +186,7 @@ Zack Sorensen and Alex Evans
 | Classification | Identification and Authentication Failures |
 | Severity | 0 |
 | Description | Brute force passwords to log into admin account. Failed, because I got hit by the rate limit for authentication attempts. |
-| Images | ![][image16]![][image17] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a_attack_1.png) ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a_attack_2.png)|
 | Corrections | Not needed |
 
 | Item | Result |
@@ -196,7 +196,7 @@ Zack Sorensen and Alex Evans
 | Classification | Broken Access Control |
 | Severity | 0 |
 | Description | Delete an account as a non-admin user. Would have succeeded, but the endpoint was not implemented. |
-| Images | ![][image18] |
+| Images |  ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a_attack_3.png) |
 | Corrections | Implement the delete user endpoint. |
 
 | Item | Result |
@@ -206,7 +206,7 @@ Zack Sorensen and Alex Evans
 | Classification | Insecure Design |
 | Severity | 0 |
 | Description | Order a custom pizza by changing the description, but not the price. Failed attempt. |
-| Images | ![][image19] |
+| Images | ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a_attack_4.png)|
 | Corrections | Not needed |
 
 | Item | Result |
@@ -216,7 +216,7 @@ Zack Sorensen and Alex Evans
 | Classification | Broken Access Control |
 | Severity | 2 |
 | Description | As a non-admin user, get a list of all users. Would have succeeded with more time, but got this nice error stack. |
-| Images | ![][image20] |
+| Images | ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a_attack_5.png) |
 | Corrections | Remove the error stack, secure user list endpoint. |
 
 | Item | Result |
@@ -226,7 +226,7 @@ Zack Sorensen and Alex Evans
 | Classification | Software Logging and Monitoring Failures, Insecure Design |
 | Severity | 2 |
 | Description | Repeatedly send an order that is too big. The result was a really large latency on the dashboard that was not accurate (lots of requests starting but not finishing). This would be a good way to hide a different attack\! |
-| Images | ![][image21]  |
+| Images | ![](https://github.com/zackjsorensen/jwt-pizza-service/blob/main/penetrationTests/PenTest/a_attack_6.png) |
 | Corrections | Rate limiting for ordering pizza. |
 
  
