@@ -25,7 +25,7 @@ Zack Sorensen and Alex Evans
 | Classification | Authentication Failure |
 | Severity | 2 |
 | Description | Log into a user with no password |
-| Images |    ![][../z2.png]   |
+| Images |    ![][../PenTest/z2.png]   |
 | Corrections | Add check to make sure password is not empty/null |
 
 | Item | Result |
